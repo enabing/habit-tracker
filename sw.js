@@ -1,5 +1,5 @@
-const CACHE = 'habit-tracker-v1';
-const ASSETS = ['/', '/manifest.json'];
+const CACHE = 'habit-tracker-v2';
+const ASSETS = ['/habit-tracker/', '/habit-tracker/manifest.json'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));

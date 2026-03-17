@@ -2,7 +2,7 @@
   "name": "Habit Tracker",
   "short_name": "Habits",
   "description": "Tägliches Habit Tracking mit Muster-Erkennung",
-  "start_url": "/",
+  "start_url": "/habit-tracker/",
   "display": "standalone",
   "background_color": "#0f0f13",
   "theme_color": "#7c6bff",
