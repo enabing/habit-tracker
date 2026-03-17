@@ -1,0 +1,1771 @@
+<!DOCTYPE html>
+<html lang="de" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Habits" />
+  <meta name="theme-color" content="#7c6bff" />
+  <link rel="manifest" href="manifest.json" />
+  <script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <title>Habit Tracker</title>
+  <style>
+    /* ── THEME TOKENS ── */
+    :root[data-theme="dark"] {
+      --bg: #0f0f13;
+      --surface: #1a1a23;
+      --surface2: #22222e;
+      --border: #2e2e3e;
+      --accent: #7c6bff;
+      --accent-soft: #3d3470;
+      --text: #e8e8f0;
+      --text-muted: #7070a0;
+      --shadow: 0 2px 12px rgba(0,0,0,0.4);
+    }
+    :root[data-theme="light"] {
+      --bg: #f4f4f8;
+      --surface: #ffffff;
+      --surface2: #f0f0f5;
+      --border: #dddde8;
+      --accent: #6355e8;
+      --accent-soft: #ebe9ff;
+      --text: #1a1a2e;
+      --text-muted: #8080a8;
+      --shadow: 0 2px 12px rgba(0,0,0,0.08);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    .hidden { display: none !important; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 14px;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transition: background 0.2s, color 0.2s;
+    }
+
+    /* ── TOP BAR ── */
+    header {
+      height: 60px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      gap: 12px;
+      flex-shrink: 0;
+      box-shadow: var(--shadow);
+      z-index: 30;
+    }
+    header h1 { font-size: 17px; font-weight: 700; letter-spacing: -0.3px; }
+    .header-spacer { flex: 1; }
+
+    .view-toggle {
+      display: flex;
+      background: var(--bg);
+      border-radius: 8px;
+      padding: 3px;
+      gap: 2px;
+    }
+    .view-toggle button {
+      background: none; border: none; color: var(--text-muted);
+      padding: 5px 14px; border-radius: 6px; cursor: pointer; font-size: 13px;
+      transition: all 0.15s;
+    }
+    .view-toggle button.active { background: var(--accent); color: #fff; font-weight: 600; }
+
+    .btn-primary {
+      background: var(--accent); color: #fff; border: none; border-radius: 8px;
+      padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer;
+      display: flex; align-items: center; gap: 6px; transition: opacity 0.15s;
+    }
+    .btn-primary:hover { opacity: 0.85; }
+
+    .btn-icon {
+      background: none; border: none; color: var(--text-muted); cursor: pointer;
+      padding: 6px 8px; border-radius: 6px; font-size: 16px;
+      transition: color 0.15s, background 0.15s; line-height: 1;
+    }
+    .btn-icon:hover { color: var(--text); background: var(--border); }
+
+    .theme-toggle {
+      background: none; border: 1px solid var(--border); border-radius: 20px;
+      padding: 5px 10px; cursor: pointer; font-size: 15px; color: var(--text-muted);
+      display: flex; align-items: center; gap: 5px; font-size: 13px;
+      transition: all 0.15s;
+    }
+    .theme-toggle:hover { border-color: var(--accent); color: var(--text); }
+
+    /* ── MAIN ── */
+    main { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+
+    /* ── MONTH NAV ── */
+    .month-nav {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 20px; border-bottom: 1px solid var(--border);
+      background: var(--surface); flex-shrink: 0;
+    }
+    .month-label { font-weight: 700; font-size: 15px; min-width: 130px; }
+
+    /* ── GRID ── */
+    .grid-scroll { flex: 1; overflow: auto; }
+
+    table { border-collapse: collapse; min-width: 100%; }
+
+    thead th {
+      position: sticky; top: 0; z-index: 10;
+      background: var(--surface); border-bottom: 1px solid var(--border);
+    }
+    .th-habit-col {
+      left: 0; z-index: 20 !important; min-width: 200px;
+      padding: 10px 16px; text-align: left; font-size: 12px;
+      text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted);
+    }
+    .th-date { min-width: 60px; text-align: center; padding: 8px 4px; }
+    .th-date .day-name { font-size: 10px; color: var(--text-muted); text-transform: uppercase; }
+    .th-date .day-num { font-size: 16px; font-weight: 700; margin-top: 2px; }
+    .th-date.today .day-num { color: var(--accent); }
+    .th-date.today .day-name { color: var(--accent); }
+
+    tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
+    tbody tr:hover { background: var(--surface2); }
+
+    .td-habit {
+      position: sticky; left: 0; background: var(--bg); z-index: 5;
+      min-width: 200px; padding: 0 16px; height: 52px; vertical-align: middle;
+      border-right: 1px solid var(--border); transition: background 0.1s;
+    }
+    tbody tr:hover .td-habit { background: var(--surface2); }
+
+    .habit-name {
+      display: flex; align-items: center; gap: 8px;
+    }
+    .habit-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .habit-label { font-size: 14px; font-weight: 500; flex: 1; }
+    .habit-type-badge {
+      font-size: 10px; background: var(--surface2); color: var(--text-muted);
+      padding: 2px 6px; border-radius: 10px; border: 1px solid var(--border);
+    }
+    .habit-actions { display: none; gap: 2px; }
+    tbody tr:hover .habit-actions { display: flex; }
+    .habit-edit-btn {
+      background: none; border: none; color: var(--text-muted); cursor: pointer;
+      padding: 3px 5px; border-radius: 5px; font-size: 13px;
+      transition: color 0.15s, background 0.15s;
+    }
+    .habit-edit-btn:hover { color: var(--accent); background: var(--accent-soft); }
+
+    .td-cell {
+      text-align: center; vertical-align: middle; width: 60px;
+      padding: 4px 4px;
+    }
+    .td-cell.future { opacity: 0.3; pointer-events: none; }
+
+    /* Boolean checkbox */
+    .check-wrap { display: flex; align-items: center; justify-content: center; }
+    .check-wrap input[type="checkbox"] { display: none; }
+    .check-box {
+      width: 30px; height: 30px; border-radius: 8px;
+      border: 2px solid var(--border); background: var(--bg); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s; font-size: 14px; color: transparent; user-select: none;
+    }
+    .check-box:hover { border-color: var(--accent); background: var(--accent-soft); }
+    input[type="checkbox"]:checked + .check-box {
+      background: var(--accent); border-color: var(--accent); color: #fff;
+    }
+
+    /* Numeric input */
+    .num-input-wrap { display: flex; justify-content: center; }
+    .num-input {
+      width: 48px; height: 30px; border-radius: 8px; border: 2px solid var(--border);
+      background: var(--bg); color: var(--text); text-align: center; font-size: 13px;
+      font-weight: 600; outline: none; transition: border-color 0.15s;
+      -moz-appearance: textfield;
+    }
+    .num-input::-webkit-inner-spin-button,
+    .num-input::-webkit-outer-spin-button { -webkit-appearance: none; }
+    .num-input:focus { border-color: var(--accent); }
+    .num-input.has-value { border-color: var(--accent); background: var(--accent-soft); }
+
+    /* Notes cell */
+    .note-btn {
+      background: none; border: none; cursor: pointer; padding: 3px;
+      border-radius: 5px; font-size: 14px; transition: opacity 0.15s;
+      opacity: 0.3;
+    }
+    .note-btn.has-note { opacity: 1; }
+    .note-btn:hover { opacity: 0.8; }
+
+    /* ── ADD HABIT ROW ── */
+    .add-row td { padding: 10px 16px; }
+    .inline-add { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .inline-add input[type="text"] {
+      background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+      padding: 7px 12px; color: var(--text); font-size: 14px; width: 200px;
+      outline: none; transition: border-color 0.15s;
+    }
+    .inline-add input[type="text"]:focus { border-color: var(--accent); }
+    .inline-add input::placeholder { color: var(--text-muted); }
+    .type-select {
+      background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+      padding: 7px 10px; color: var(--text); font-size: 13px; outline: none;
+      cursor: pointer;
+    }
+    .btn-save {
+      background: var(--accent); border: none; color: #fff;
+      padding: 7px 14px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600;
+    }
+    .btn-cancel {
+      background: none; border: none; color: var(--text-muted); padding: 7px 10px;
+      cursor: pointer; font-size: 13px;
+    }
+
+    /* ── MODAL ── */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 100; backdrop-filter: blur(4px);
+    }
+    .modal-overlay.hidden { display: none; }
+    .modal {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+      padding: 24px; width: 380px; max-width: 90vw; box-shadow: var(--shadow);
+    }
+    .modal h3 { font-size: 16px; font-weight: 700; margin-bottom: 16px; }
+    .modal-field { margin-bottom: 14px; }
+    .modal-field label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .modal-field input, .modal-field select, .modal-field textarea {
+      width: 100%; background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 9px 12px; color: var(--text); font-size: 14px;
+      outline: none; font-family: inherit; transition: border-color 0.15s;
+    }
+    .modal-field textarea { resize: vertical; min-height: 80px; }
+    .modal-field input:focus, .modal-field select:focus, .modal-field textarea:focus {
+      border-color: var(--accent);
+    }
+    .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+    .btn-danger {
+      background: none; border: 1px solid #ff6b6b; color: #ff6b6b;
+      padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 13px;
+      font-weight: 600; margin-right: auto;
+    }
+    .btn-danger:hover { background: rgba(255,107,107,0.1); }
+
+    /* ── REPORT ── */
+    .report-panel { padding: 24px; overflow-y: auto; flex: 1; }
+    .report-header { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+    .report-header h2 { font-size: 20px; font-weight: 700; }
+    .range-select { display: flex; gap: 8px; }
+    .range-btn {
+      background: var(--surface2); border: 1px solid var(--border); color: var(--text-muted);
+      padding: 6px 14px; border-radius: 8px; cursor: pointer; font-size: 13px;
+      transition: all 0.15s;
+    }
+    .range-btn.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+
+    .ai-banner {
+      background: linear-gradient(135deg, var(--accent-soft) 0%, var(--surface2) 100%);
+      border: 1px solid var(--border); border-left: 3px solid var(--accent);
+      border-radius: 12px; padding: 18px 20px; margin-bottom: 24px;
+      display: flex; align-items: center; gap: 16px;
+    }
+    .ai-banner-icon { font-size: 28px; }
+    .ai-banner-text h3 { font-weight: 700; margin-bottom: 4px; font-size: 15px; }
+    .ai-banner-text p { color: var(--text-muted); font-size: 13px; line-height: 1.5; }
+    .btn-outline {
+      background: none; border: 1px solid var(--accent); color: var(--accent);
+      padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 13px;
+      font-weight: 600; margin-left: auto; white-space: nowrap; flex-shrink: 0;
+    }
+
+    .report-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+    .report-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 16px;
+    }
+    .report-card-title { display: flex; align-items: center; gap: 8px; font-weight: 600; margin-bottom: 12px; }
+    .streak-bar { display: flex; gap: 3px; flex-wrap: wrap; }
+    .streak-dot { width: 20px; height: 20px; border-radius: 5px; background: var(--surface2); }
+    .streak-dot.done { background: var(--accent); }
+    .streak-dot.partial { background: var(--accent); opacity: 0.5; }
+    .stat-row { display: flex; justify-content: space-between; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+    .stat-item { text-align: center; }
+    .stat-val { font-size: 20px; font-weight: 700; color: var(--accent); }
+    .stat-key { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+    .section-label {
+      color: var(--text-muted); font-size: 12px; text-transform: uppercase;
+      letter-spacing: 0.5px; margin-bottom: 12px;
+    }
+
+    /* ── HIDDEN HABIT ── */
+    tr.habit-hidden .td-habit { opacity: 0.4; }
+    tr.habit-hidden .td-cell { opacity: 0.25; pointer-events: none; }
+
+    /* ── PERIOD CELL ── */
+    .period-cell-btn {
+      display: flex; align-items: center; justify-content: center; gap: 4px;
+      width: 46px; height: 30px; border-radius: 8px;
+      border: 2px solid var(--border); background: var(--bg);
+      cursor: pointer; font-size: 15px; transition: all 0.15s;
+      color: var(--text-muted); margin: 0 auto;
+    }
+    .period-cell-btn:hover { border-color: #e85d8a; background: rgba(232,93,138,0.08); }
+    .period-cell-btn.has-drops {
+      border-color: #e85d8a; background: rgba(232,93,138,0.12);
+    }
+    .period-cell-btn .drop-count {
+      font-size: 12px; font-weight: 700; color: #e85d8a; line-height: 1;
+    }
+
+    /* ── PERIOD PICKER ── */
+    .period-picker-overlay {
+      position: fixed; inset: 0; z-index: 200;
+      background: rgba(0,0,0,0.4); backdrop-filter: blur(2px);
+      display: flex; align-items: flex-end; justify-content: center;
+    }
+    @media (min-height: 500px) {
+      .period-picker-overlay { align-items: center; }
+    }
+    .period-picker-overlay.hidden { display: none; }
+    .period-picker {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 20px 20px 0 0; padding: 20px 20px 32px;
+      width: 100%; max-width: 360px;
+    }
+    @media (min-height: 500px) {
+      .period-picker { border-radius: 16px; padding: 20px; }
+    }
+    .picker-handle {
+      width: 36px; height: 4px; background: var(--border);
+      border-radius: 2px; margin: 0 auto 16px;
+    }
+    .picker-title {
+      font-size: 15px; font-weight: 700; text-align: center; margin-bottom: 20px;
+    }
+    .picker-drops {
+      display: flex; justify-content: center; gap: 10px; margin-bottom: 20px;
+    }
+    .picker-drop-opt {
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+      background: var(--surface2); border: 2px solid var(--border);
+      border-radius: 12px; padding: 12px 10px; cursor: pointer;
+      transition: all 0.15s; min-width: 60px;
+    }
+    .picker-drop-opt:hover { border-color: #e85d8a; }
+    .picker-drop-opt.selected {
+      border-color: #e85d8a; background: rgba(232,93,138,0.12);
+    }
+    .picker-drop-opt .drop-emoji { font-size: 20px; line-height: 1; }
+    .picker-drop-opt .drop-label { font-size: 11px; color: var(--text-muted); }
+    .picker-drop-opt.selected .drop-label { color: #e85d8a; font-weight: 600; }
+    .picker-actions {
+      display: flex; gap: 8px;
+    }
+    .btn-clear {
+      background: none; border: 1px solid var(--border); color: var(--text-muted);
+      padding: 10px 16px; border-radius: 10px; cursor: pointer; font-size: 13px;
+    }
+    .btn-confirm {
+      flex: 1; background: #e85d8a; border: none; color: #fff;
+      padding: 10px; border-radius: 10px; cursor: pointer;
+      font-size: 14px; font-weight: 700;
+    }
+    .btn-confirm:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* ── NAV BUTTONS (shared) ── */
+    .nav-toggle-btn {
+      background: none; border: 1px solid var(--border); color: var(--text-muted);
+      padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 12px;
+      transition: all 0.15s;
+    }
+    .nav-toggle-btn.active {
+      border-color: var(--accent); color: var(--accent); background: var(--accent-soft);
+    }
+    .show-hidden-btn { margin-left: auto; }
+
+    /* ── DRAG & DROP ── */
+    .drag-handle {
+      cursor: grab; color: var(--text-muted); font-size: 18px;
+      padding: 0 6px 0 2px; line-height: 1; user-select: none;
+      opacity: 0.5; transition: opacity 0.15s;
+    }
+    .drag-handle:hover { opacity: 1; color: var(--accent); }
+    .drag-handle:active { cursor: grabbing; }
+
+    tr.drag-over td { background: var(--accent-soft) !important; }
+    tr.drag-over .td-habit { background: var(--accent-soft) !important; }
+    tr.dragging { opacity: 0.4; }
+
+    /* ── LOGIN OVERLAY ── */
+    .login-overlay {
+      position: fixed; inset: 0; z-index: 500;
+      background: var(--bg); display: flex;
+      align-items: center; justify-content: center; padding: 24px;
+    }
+    .login-overlay.hidden { display: none; }
+    .login-box {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 20px; padding: 36px 32px; width: 100%; max-width: 380px;
+      text-align: center; box-shadow: var(--shadow);
+    }
+    .login-icon { font-size: 36px; margin-bottom: 16px; }
+    .login-box h2 { font-size: 22px; font-weight: 800; margin-bottom: 10px; }
+    .login-box > p { color: var(--text-muted); font-size: 14px; line-height: 1.5; margin-bottom: 24px; }
+    #login-form { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+    #login-form input[type="email"] {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 12px 14px; color: var(--text);
+      font-size: 15px; outline: none; text-align: center; transition: border-color 0.15s;
+    }
+    #login-form input[type="email"]:focus { border-color: var(--accent); }
+    #login-form button {
+      background: var(--accent); color: #fff; border: none;
+      border-radius: 10px; padding: 12px; font-size: 15px;
+      font-weight: 700; cursor: pointer; transition: opacity 0.15s;
+    }
+    #login-form button:hover { opacity: 0.85; }
+    #login-form button:disabled { opacity: 0.5; cursor: not-allowed; }
+    #login-sent { color: var(--text-muted); font-size: 14px; line-height: 1.6; margin-bottom: 16px; }
+    .btn-skip {
+      background: none; border: none; color: var(--text-muted);
+      font-size: 13px; cursor: pointer; padding: 8px;
+      text-decoration: underline; transition: color 0.15s;
+    }
+    .btn-skip:hover { color: var(--text); }
+    #login-code-wrap { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+    #login-code-wrap p { color: var(--text-muted); font-size: 13px; line-height: 1.5; }
+    #login-code-input {
+      background: var(--surface2); border: 2px solid var(--accent);
+      border-radius: 10px; padding: 14px; color: var(--text);
+      font-size: 30px; font-weight: 700; outline: none;
+      text-align: center; letter-spacing: 10px; width: 100%;
+      transition: border-color 0.15s;
+    }
+    #login-code-input::placeholder { letter-spacing: 2px; font-size: 16px; font-weight: 400; }
+    #login-code-input:focus { border-color: var(--accent); }
+    #login-verify-btn {
+      background: var(--accent); color: #fff; border: none;
+      border-radius: 10px; padding: 12px; font-size: 15px;
+      font-weight: 700; cursor: pointer; transition: opacity 0.15s; width: 100%;
+    }
+    #login-verify-btn:hover { opacity: 0.85; }
+    #login-verify-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-resend {
+      background: none; border: none; color: var(--text-muted);
+      font-size: 13px; cursor: pointer; padding: 4px; width: 100%;
+      text-decoration: underline; transition: color 0.15s;
+    }
+    .btn-resend:hover { color: var(--text); }
+
+    /* ── ACCOUNT MODAL ── */
+    .account-modal-inner { max-width: 280px !important; text-align: center; }
+    .account-avatar { font-size: 44px; margin-bottom: 12px; }
+    .account-email { font-size: 14px; color: var(--text-muted); word-break: break-all; margin-bottom: 24px; line-height: 1.4; }
+    .btn-signout {
+      background: #ff6b6b22; border: 1px solid #ff6b6b55; color: #ff6b6b;
+      border-radius: 10px; padding: 11px 24px; font-size: 14px; font-weight: 600;
+      cursor: pointer; width: 100%; transition: background 0.15s;
+    }
+    .btn-signout:hover { background: #ff6b6b33; }
+
+    /* ── SYNC STATUS ── */
+    .sync-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--border); flex-shrink: 0; transition: background 0.3s;
+    }
+    .sync-dot.syncing { background: #ffb86b; animation: sync-pulse 1s infinite; }
+    .sync-dot.synced { background: #2ec99e; }
+    .sync-dot.error { background: #ff6b6b; }
+    .sync-dot.hidden { display: none !important; }
+    @keyframes sync-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+    /* ── AI REPORT ── */
+    .ar-section { margin-bottom: 22px; }
+    .ar-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .ar-icon { font-size: 20px; line-height: 1; }
+    .ar-title { font-weight: 700; font-size: 15px; }
+    .ar-sub { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+    .ar-section > p { color: var(--text-muted); font-size: 14px; line-height: 1.65; margin-bottom: 8px; }
+    .ar-section > p strong { color: var(--text); }
+    .ar-habit-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 0; border-bottom: 1px solid var(--border);
+    }
+    .ar-habit-row:last-child { border-bottom: none; }
+    .ar-habit-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .ar-habit-info { flex: 1; min-width: 0; }
+    .ar-habit-name { font-weight: 600; font-size: 14px; }
+    .ar-habit-detail { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+    .ar-pct { font-size: 18px; font-weight: 700; flex-shrink: 0; }
+    .ar-loading { text-align: center; padding: 40px 0; color: var(--text-muted); }
+    .ar-loading .ar-spin { font-size: 28px; animation: ar-rotate 1.5s linear infinite; display:inline-block; }
+    @keyframes ar-rotate { to { transform: rotate(360deg); } }
+
+    .user-chip {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 20px; padding: 5px 12px; font-size: 13px;
+      color: var(--text-muted); cursor: pointer; transition: all 0.15s;
+      max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .user-chip:hover { border-color: var(--accent); color: var(--text); }
+    .user-chip.hidden { display: none !important; }
+
+    /* ── MOBILE BOTTOM BAR ── */
+    .mobile-bottom-bar {
+      display: none;
+      position: fixed; bottom: 0; left: 0; right: 0;
+      height: 64px; background: var(--surface);
+      border-top: 1px solid var(--border);
+      z-index: 40; align-items: center;
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    .tab-btn {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 3px;
+      background: none; border: none; cursor: pointer;
+      color: var(--text-muted); font-size: 10px; font-weight: 500;
+      padding: 8px 0; transition: color 0.15s; height: 100%;
+    }
+    .tab-btn.active { color: var(--accent); }
+    .tab-icon { font-size: 22px; line-height: 1; transition: transform 0.15s; }
+    .tab-btn.active .tab-icon { transform: scale(1.15); }
+    .tab-add-wrap { flex: 1; display: flex; align-items: center; justify-content: center; }
+    .tab-add {
+      width: 50px; height: 50px; border-radius: 50%;
+      background: var(--accent); border: none; color: #fff; cursor: pointer;
+      font-size: 26px; font-weight: 300; line-height: 1;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 3px 12px rgba(124,107,255,0.45);
+      transition: transform 0.15s, opacity 0.15s;
+    }
+    .tab-add:active { transform: scale(0.92); opacity: 0.85; }
+
+    /* ── MOBILE RESPONSIVE ── */
+    @media (max-width: 768px) {
+      body { height: 100dvh; padding-bottom: 64px; }
+
+      /* Header */
+      header { height: 52px; padding: 0 14px; gap: 8px; }
+      header h1 { font-size: 15px; }
+      .view-toggle { display: none; }
+      .btn-primary { display: none; }
+      .btn-icon { display: none; }
+      .theme-toggle { padding: 4px 9px; font-size: 12px; gap: 4px; }
+
+      /* Bottom bar */
+      .mobile-bottom-bar { display: flex; }
+
+      /* Month nav */
+      .month-nav { padding: 8px 12px; gap: 8px; }
+      .month-label { font-size: 13px; min-width: 100px; }
+      .show-hidden-btn, #reorder-btn { font-size: 11px; padding: 3px 8px; }
+
+      /* Grid columns */
+      .th-habit-col, .td-habit { min-width: 120px; }
+      .th-date { min-width: 46px; }
+      .td-cell { width: 46px; padding: 3px 2px; }
+
+      /* Touch-friendly cells */
+      .check-box { width: 36px; height: 36px; border-radius: 9px; font-size: 15px; }
+      .period-cell-btn { width: 40px; height: 34px; font-size: 14px; }
+      .num-input { width: 42px; height: 32px; font-size: 12px; }
+
+      /* Always show habit actions on mobile (no hover) */
+      .habit-actions { display: flex !important; }
+      .habit-edit-btn { font-size: 12px; padding: 2px 4px; }
+
+      /* Fill remaining space */
+      .grid-scroll { flex: 1; }
+      #view-tracker { height: 100%; }
+
+      /* Habit row height */
+      .td-habit { height: 46px; padding: 0 10px; }
+
+      /* Modal full-width on mobile */
+      .modal { width: 100%; max-width: 100vw; margin: 0 12px; }
+
+      /* Period picker full width on mobile */
+      .period-picker { border-radius: 20px 20px 0 0; }
+      .picker-drop-opt { min-width: 50px; padding: 10px 6px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Habit Tracker <span style="font-size:11px;font-weight:400;opacity:0.4;letter-spacing:0;">v1.3</span></h1>
+  <div class="header-spacer"></div>
+  <span class="sync-dot hidden" id="sync-dot" title=""></span>
+  <button class="user-chip hidden" id="user-chip" onclick="openAccountMenu()" title="Konto"></button>
+  <button class="btn-icon" onclick="importData()" title="Daten importieren">📥</button>
+  <button class="btn-icon" onclick="exportData()" title="Daten exportieren">📤</button>
+  <button class="theme-toggle" onclick="toggleTheme()" id="theme-btn">☀️ Light</button>
+  <div class="view-toggle">
+    <button class="active" onclick="setView('tracker')">Tracker</button>
+    <button onclick="setView('report')">Report</button>
+  </div>
+  <button class="btn-primary" onclick="showAddHabit()">+ Neuer Habit</button>
+</header>
+
+<!-- TRACKER VIEW -->
+<main id="view-tracker">
+  <div class="month-nav">
+    <button class="btn-icon" onclick="shiftDays(-14)">◀</button>
+    <span class="month-label" id="month-label"></span>
+    <button class="btn-icon" onclick="shiftDays(14)">▶</button>
+    <button class="nav-toggle-btn show-hidden-btn" id="show-hidden-btn" onclick="toggleShowHidden()">👁 Versteckte</button>
+    <button class="nav-toggle-btn" id="reorder-btn" onclick="toggleReorderMode()">↕ Verschieben</button>
+  </div>
+  <div class="grid-scroll" id="grid-area"></div>
+</main>
+
+<!-- REPORT VIEW -->
+<main id="view-report" style="display:none; flex-direction:column;">
+  <div class="report-panel">
+    <div class="report-header">
+      <h2>Dein Report</h2>
+      <div class="range-select">
+        <button class="range-btn active" onclick="setRange(7,this)">7 Tage</button>
+        <button class="range-btn" onclick="setRange(14,this)">14 Tage</button>
+        <button class="range-btn" onclick="setRange(30,this)">30 Tage</button>
+      </div>
+    </div>
+    <div class="ai-banner">
+      <div class="ai-banner-icon">✦</div>
+      <div class="ai-banner-text">
+        <h3>KI-Analyse</h3>
+        <p>Claude analysiert deine Habits auf Korrelationen und Muster über den gewählten Zeitraum.</p>
+      </div>
+      <button class="btn-outline" onclick="generateReport()">Report generieren</button>
+    </div>
+    <div class="section-label" style="margin-bottom:12px;">Habit Übersicht</div>
+    <div class="report-grid" id="report-cards"></div>
+  </div>
+</main>
+
+<!-- LOGIN OVERLAY -->
+<div class="login-overlay hidden" id="login-overlay">
+  <div class="login-box">
+    <div class="login-icon">✦</div>
+    <h2>Habit Tracker</h2>
+    <p>Melde dich an, um deine Daten auf allen Geräten zu synchronisieren.</p>
+    <div id="login-form">
+      <input type="email" id="login-email" placeholder="deine@email.de"
+        onkeydown="if(event.key==='Enter') sendOtpEmail()" />
+      <button onclick="sendOtpEmail()">Code senden</button>
+    </div>
+    <div id="login-sent" class="hidden">
+      <div id="login-code-wrap">
+        <p>✉️ Code gesendet!<br>Gib den <strong>Code</strong> aus deiner E-Mail ein:</p>
+        <input type="text" id="login-code-input" placeholder="Code eingeben"
+          inputmode="numeric" autocomplete="one-time-code"
+          onkeydown="if(event.key==='Enter') verifyOtpCode()" />
+        <button id="login-verify-btn" onclick="verifyOtpCode()">Anmelden</button>
+        <button class="btn-resend" onclick="backToEmail()">↩ Andere E-Mail</button>
+      </div>
+    </div>
+    <button class="btn-skip" onclick="skipLogin()">Ohne Sync fortfahren →</button>
+  </div>
+</div>
+
+<!-- PERIOD PICKER -->
+<div class="period-picker-overlay hidden" id="period-picker-overlay">
+  <div class="period-picker">
+    <div class="picker-handle"></div>
+    <div class="picker-title">Wie stark war die Periode?</div>
+    <div class="picker-drops">
+      <div class="picker-drop-opt" onclick="selectPickerDrop(1)" id="pick-1">
+        <span class="drop-emoji">🩸</span>
+        <span class="drop-label">Leicht</span>
+      </div>
+      <div class="picker-drop-opt" onclick="selectPickerDrop(2)" id="pick-2">
+        <span class="drop-emoji">🩸🩸</span>
+        <span class="drop-label">Mittel</span>
+      </div>
+      <div class="picker-drop-opt" onclick="selectPickerDrop(3)" id="pick-3">
+        <span class="drop-emoji">🩸🩸🩸</span>
+        <span class="drop-label">Stark</span>
+      </div>
+      <div class="picker-drop-opt" onclick="selectPickerDrop(4)" id="pick-4">
+        <span class="drop-emoji">🩸🩸🩸🩸</span>
+        <span class="drop-label">Sehr stark</span>
+      </div>
+    </div>
+    <div class="picker-actions">
+      <button class="btn-clear" onclick="clearPeriod()">Löschen</button>
+      <button class="btn-confirm" id="picker-confirm" onclick="confirmPeriod()">Bestätigen</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT HABIT MODAL -->
+<div class="modal-overlay hidden" id="edit-modal">
+  <div class="modal">
+    <h3>Habit bearbeiten</h3>
+    <div class="modal-field">
+      <label>Name</label>
+      <input type="text" id="edit-name" placeholder="Habit Name" />
+    </div>
+    <div class="modal-field">
+      <label>Typ</label>
+      <select id="edit-type">
+        <option value="bool">Ja / Nein (Checkbox)</option>
+        <option value="num">Numerisch (Wert eingeben)</option>
+        <option value="period">🩸 Periode (1–4 Tropfen)</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-danger" onclick="deleteHabit()">Löschen</button>
+      <button class="btn-cancel" onclick="closeModal('edit-modal')">Abbrechen</button>
+      <button class="btn-save" onclick="saveEditHabit()">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- NOTE MODAL -->
+<div class="modal-overlay hidden" id="note-modal">
+  <div class="modal">
+    <h3 id="note-modal-title">Notiz</h3>
+    <div class="modal-field">
+      <label>Deine Notiz für diesen Tag</label>
+      <textarea id="note-input" placeholder="Was ist heute passiert? Wie war der Tag?"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('note-modal')">Abbrechen</button>
+      <button class="btn-save" onclick="saveNote()">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- AI REPORT MODAL -->
+<div class="modal-overlay hidden" id="ai-report-modal">
+  <div class="modal" style="max-width:500px; max-height:82vh; display:flex; flex-direction:column;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; flex-shrink:0;">
+      <h3 style="margin:0;">✦ Analyse</h3>
+      <button class="btn-cancel" style="font-size:18px;" onclick="closeModal('ai-report-modal')">✕</button>
+    </div>
+    <div id="ai-report-content" style="overflow-y:auto; flex:1;"></div>
+  </div>
+</div>
+
+<!-- ACCOUNT MODAL -->
+<div class="modal-overlay hidden" id="account-modal">
+  <div class="modal account-modal-inner">
+    <div class="account-avatar">👤</div>
+    <div class="account-email" id="account-modal-email"></div>
+    <button class="btn-signout" onclick="doSignOut()">Abmelden</button>
+    <div style="margin-top:12px;">
+      <button class="btn-cancel" onclick="closeModal('account-modal')">Schließen</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD HABIT MODAL (mobile) -->
+<div class="modal-overlay hidden" id="add-habit-modal">
+  <div class="modal">
+    <h3>Neuer Habit</h3>
+    <div class="modal-field">
+      <label>Name</label>
+      <input type="text" id="add-habit-name" placeholder="z.B. Stimmung, Energie…"
+        onkeydown="if(event.key==='Enter') saveHabitFromModal(); if(event.key==='Escape') closeModal('add-habit-modal')" />
+    </div>
+    <div class="modal-field">
+      <label>Typ</label>
+      <select id="add-habit-type-modal">
+        <option value="bool">Ja / Nein (Checkbox)</option>
+        <option value="num">Numerisch (Wert eingeben)</option>
+        <option value="period">🩸 Periode (1–4 Tropfen)</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('add-habit-modal')">Abbrechen</button>
+      <button class="btn-save" onclick="saveHabitFromModal()">Hinzufügen</button>
+    </div>
+  </div>
+</div>
+
+<!-- MOBILE BOTTOM BAR -->
+<nav class="mobile-bottom-bar">
+  <button class="tab-btn" id="tab-tracker" onclick="setView('tracker')">
+    <span class="tab-icon">☑</span>
+    <span>Tracker</span>
+  </button>
+  <div class="tab-add-wrap">
+    <button class="tab-add" onclick="showAddHabit()" title="Neuer Habit">+</button>
+  </div>
+  <button class="tab-btn" id="tab-report" onclick="setView('report')">
+    <span class="tab-icon">📊</span>
+    <span>Report</span>
+  </button>
+</nav>
+
+<script>
+  // ── DATA ──
+  const COLORS = ['#7c6bff','#ff6b9d','#2ec99e','#ffb86b','#4da6ff','#ff6b6b','#a8e063'];
+  let habits = [
+    { id: 1, name: 'Hitzewallungen', color: COLORS[0], type: 'bool' },
+    { id: 2, name: 'Gliederschmerzen', color: COLORS[1], type: 'bool' },
+    { id: 3, name: 'Kopfweh', color: COLORS[2], type: 'bool' },
+    { id: 4, name: 'Schlafscore', color: COLORS[3], type: 'num' },
+    { id: 5, name: 'Sport', color: COLORS[4], type: 'bool' },
+    { id: 6, name: 'Periode', color: '#e85d8a', type: 'period' },
+  ];
+  // checks: { "id-date": true/false for bool, or number for num }
+  let checks = {};
+  // notes: { "date": "text" }
+  let notes = {};
+
+  // Demo data
+  const today = new Date();
+  const fmt = d => d.toISOString().slice(0,10);
+  [[1,'2026-03-10'],[1,'2026-03-11'],[1,'2026-03-13'],[1,'2026-03-15'],[1,'2026-03-16'],
+   [2,'2026-03-10'],[2,'2026-03-12'],[2,'2026-03-13'],
+   [3,'2026-03-14'],[3,'2026-03-15'],
+   [5,'2026-03-11'],[5,'2026-03-13'],[5,'2026-03-15'],[5,'2026-03-16']
+  ].forEach(([id,d]) => checks[`${id}-${d}`] = true);
+  // Numeric demo
+  checks['4-2026-03-10'] = 82; checks['4-2026-03-11'] = 89;
+  checks['4-2026-03-12'] = 74; checks['4-2026-03-13'] = 91;
+  checks['4-2026-03-14'] = 68; checks['4-2026-03-15'] = 85; checks['4-2026-03-16'] = 88;
+
+  notes['2026-03-13'] = 'Stressiger Tag, Meeting den ganzen Nachmittag.';
+  notes['2026-03-15'] = 'Heute war es deutlich besser!';
+  // Period demo
+  checks['6-2026-03-10'] = 3; checks['6-2026-03-11'] = 4; checks['6-2026-03-12'] = 2; checks['6-2026-03-13'] = 1;
+
+  let nextId = 7;
+  let addingHabit = false;
+  let windowStart = 0;
+  const DAYS_SHOWN = window.innerWidth <= 768 ? 7 : 14;
+  let editingHabitId = null;
+  let noteContext = { date: null };
+  let showHidden = false;
+  let reorderMode = false;
+  let dragSrcId = null;
+
+  // ── THEME ──
+  let isDark = true;
+  function toggleTheme() {
+    isDark = !isDark;
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    document.getElementById('theme-btn').textContent = isDark ? '☀️ Light' : '🌙 Dark';
+  }
+
+  // ── DATES ──
+  function getDates() {
+    const base = new Date(today);
+    base.setDate(base.getDate() - (DAYS_SHOWN - 1) + windowStart);
+    return Array.from({length: DAYS_SHOWN}, (_, i) => {
+      const d = new Date(base);
+      d.setDate(d.getDate() + i);
+      return d;
+    });
+  }
+  function shiftDays(n) { windowStart += n; renderGrid(); }
+  function isFuture(d) {
+    const a = new Date(d); a.setHours(0,0,0,0);
+    const b = new Date(today); b.setHours(0,0,0,0);
+    return a > b;
+  }
+  const DAY_NAMES = ['So','Mo','Di','Mi','Do','Fr','Sa'];
+
+  // ── RENDER GRID ──
+  function renderGrid() {
+    const dates = getDates();
+    const area = document.getElementById('grid-area');
+    const months = [...new Set(dates.map(d => d.toLocaleDateString('de-DE', {month:'long', year:'numeric'})))];
+    document.getElementById('month-label').textContent = months.join(' · ');
+
+    let html = `<table><thead><tr>
+      <th class="th-habit-col">Habit</th>`;
+    dates.forEach(d => {
+      const isToday = fmt(d) === fmt(today);
+      html += `<th class="th-date${isToday?' today':''}">
+        <div class="day-name">${DAY_NAMES[d.getDay()]}</div>
+        <div class="day-num">${d.getDate()}</div>
+      </th>`;
+    });
+    html += `</tr></thead><tbody>`;
+
+    const visibleHabits = showHidden ? habits : habits.filter(h => !h.hidden);
+    visibleHabits.forEach(h => {
+      const hiddenClass = h.hidden ? ' habit-hidden' : '';
+      const dragAttrs = reorderMode
+        ? `draggable="true" ondragstart="onDragStart(event,${h.id})" ondragover="onDragOver(event,${h.id})" ondrop="onDrop(event,${h.id})" ondragleave="onDragLeave(event)" ondragend="onDragEnd(event)"`
+        : '';
+      html += `<tr class="${hiddenClass}" data-habit-id="${h.id}" ${dragAttrs}><td class="td-habit">
+        <div class="habit-name">
+          ${reorderMode ? `<span class="drag-handle" title="Ziehen zum Verschieben">⠿</span>` : ''}
+          <div class="habit-dot" style="background:${h.color}; opacity:${h.hidden?0.4:1}"></div>
+          <span class="habit-label">${h.name}</span>
+          <div class="habit-actions">
+            <button class="habit-edit-btn" onclick="toggleHabitVisibility(${h.id})" title="${h.hidden?'Einblenden':'Ausblenden'}">${h.hidden?'👁':'🙈'}</button>
+            <button class="habit-edit-btn" onclick="openEditHabit(${h.id})" title="Bearbeiten">✏️</button>
+          </div>
+        </div>
+      </td>`;
+
+      dates.forEach(d => {
+        const key = `${h.id}-${fmt(d)}`;
+        const future = isFuture(d) ? ' future' : '';
+        const val = checks[key];
+
+        if (h.type === 'bool') {
+          const checked = val ? 'checked' : '';
+          html += `<td class="td-cell${future}">
+            <label class="check-wrap">
+              <input type="checkbox" ${checked} onchange="toggleBool(${h.id},'${fmt(d)}',this)" />
+              <div class="check-box">✓</div>
+            </label>
+          </td>`;
+        } else if (h.type === 'period') {
+          const drops = val || 0;
+          const hasDrops = drops > 0;
+          html += `<td class="td-cell${future}">
+            <button class="period-cell-btn${hasDrops ? ' has-drops' : ''}" onclick="openPeriodPicker(${h.id},'${fmt(d)}')">
+              🩸${hasDrops ? `<span class="drop-count">${drops}</span>` : ''}
+            </button>
+          </td>`;
+        } else {
+          const hasVal = val !== undefined && val !== null && val !== '';
+          html += `<td class="td-cell${future}">
+            <div class="num-input-wrap">
+              <input type="number" class="num-input${hasVal?' has-value':''}"
+                value="${hasVal ? val : ''}" min="0" max="9999"
+                placeholder="—"
+                onchange="setNum(${h.id},'${fmt(d)}',this)"
+                onfocus="this.select()" />
+            </div>
+          </td>`;
+        }
+      });
+      html += `</tr>`;
+    });
+
+    // Notes row
+    html += `<tr><td class="td-habit" style="color:var(--text-muted); font-size:12px; text-transform:uppercase; letter-spacing:0.5px;">
+      Notiz
+    </td>`;
+    dates.forEach(d => {
+      const hasNote = !!notes[fmt(d)];
+      const future = isFuture(d) ? ' future' : '';
+      html += `<td class="td-cell${future}">
+        <div style="display:flex;justify-content:center;">
+          <button class="note-btn${hasNote?' has-note':''}" onclick="openNote('${fmt(d)}')" title="${hasNote ? 'Notiz ansehen' : 'Notiz hinzufügen'}">
+            ${hasNote ? '💬' : '💭'}
+          </button>
+        </div>
+      </td>`;
+    });
+    html += `</tr>`;
+
+    // Add habit row
+    if (addingHabit) {
+      html += `<tr class="add-row"><td colspan="${dates.length + 1}">
+        <div class="inline-add">
+          <input type="text" id="new-habit-input" placeholder="z.B. Stimmung, Energie-Level…"
+            onkeydown="if(event.key==='Enter')saveHabit(); if(event.key==='Escape')cancelAdd();" />
+          <select class="type-select" id="new-habit-type">
+            <option value="bool">Ja / Nein</option>
+            <option value="num">Numerisch</option>
+            <option value="period">🩸 Periode</option>
+          </select>
+          <button class="btn-save" onclick="saveHabit()">Speichern</button>
+          <button class="btn-cancel" onclick="cancelAdd()">Abbrechen</button>
+        </div>
+      </td></tr>`;
+    }
+
+    html += `</tbody></table>`;
+    area.innerHTML = html;
+    if (addingHabit) document.getElementById('new-habit-input')?.focus();
+  }
+
+  // ── INTERACTIONS ──
+  function toggleBool(habitId, date, el) {
+    checks[`${habitId}-${date}`] = el.checked || undefined;
+  }
+
+  function setNum(habitId, date, el) {
+    const v = el.value.trim();
+    const key = `${habitId}-${date}`;
+    if (v === '') { delete checks[key]; el.classList.remove('has-value'); }
+    else { checks[key] = parseFloat(v); el.classList.add('has-value'); }
+  }
+
+  // ── PERIOD PICKER ──
+  let pickerContext = { habitId: null, date: null, selected: 0 };
+
+  function openPeriodPicker(habitId, date) {
+    pickerContext = { habitId, date, selected: checks[`${habitId}-${date}`] || 0 };
+    // Update UI selection
+    [1,2,3,4].forEach(i => {
+      document.getElementById(`pick-${i}`).classList.toggle('selected', i === pickerContext.selected);
+    });
+    document.getElementById('period-picker-overlay').classList.remove('hidden');
+  }
+
+  function selectPickerDrop(n) {
+    pickerContext.selected = n;
+    [1,2,3,4].forEach(i => {
+      document.getElementById(`pick-${i}`).classList.toggle('selected', i === n);
+    });
+  }
+
+  function confirmPeriod() {
+    const key = `${pickerContext.habitId}-${pickerContext.date}`;
+    if (pickerContext.selected > 0) checks[key] = pickerContext.selected;
+    else delete checks[key];
+    saveToStorage();
+    document.getElementById('period-picker-overlay').classList.add('hidden');
+    renderGrid();
+  }
+
+  function clearPeriod() {
+    pickerContext.selected = 0;
+    [1,2,3,4].forEach(i => document.getElementById(`pick-${i}`).classList.remove('selected'));
+    confirmPeriod();
+  }
+
+  // Close picker on overlay click
+  document.getElementById('period-picker-overlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('period-picker-overlay'))
+      document.getElementById('period-picker-overlay').classList.add('hidden');
+  });
+
+  // ── REORDER MODE ──
+  function toggleReorderMode() {
+    reorderMode = !reorderMode;
+    document.getElementById('reorder-btn').classList.toggle('active', reorderMode);
+    renderGrid();
+  }
+
+  function onDragStart(e, habitId) {
+    dragSrcId = habitId;
+    e.dataTransfer.effectAllowed = 'move';
+    e.currentTarget.classList.add('dragging');
+  }
+
+  function onDragOver(e, habitId) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragSrcId === habitId) return;
+    document.querySelectorAll('tr[data-habit-id]').forEach(r => r.classList.remove('drag-over'));
+    e.currentTarget.classList.add('drag-over');
+  }
+
+  function onDragLeave(e) {
+    e.currentTarget.classList.remove('drag-over');
+  }
+
+  function onDrop(e, targetId) {
+    e.preventDefault();
+    if (dragSrcId === targetId) return;
+    const srcIdx = habits.findIndex(h => h.id === dragSrcId);
+    const tgtIdx = habits.findIndex(h => h.id === targetId);
+    if (srcIdx === -1 || tgtIdx === -1) return;
+    const [moved] = habits.splice(srcIdx, 1);
+    habits.splice(tgtIdx, 0, moved);
+    saveToStorage();
+    renderGrid();
+  }
+
+  function onDragEnd(e) {
+    document.querySelectorAll('tr[data-habit-id]').forEach(r => {
+      r.classList.remove('drag-over', 'dragging');
+    });
+  }
+
+  // ── HIDE / SHOW ──
+  function toggleHabitVisibility(id) {
+    const h = habits.find(x => x.id === id);
+    if (h) { h.hidden = !h.hidden; saveToStorage(); renderGrid(); }
+  }
+
+  function toggleShowHidden() {
+    showHidden = !showHidden;
+    document.getElementById('show-hidden-btn').classList.toggle('active', showHidden);
+    document.getElementById('reorder-btn')?.classList.toggle('active', false);
+    renderGrid();
+  }
+
+  // ── ADD HABIT ──
+  function showAddHabit() {
+    if (window.innerWidth <= 768) {
+      // Mobile: open overlay modal
+      document.getElementById('add-habit-name').value = '';
+      document.getElementById('add-habit-type-modal').value = 'bool';
+      document.getElementById('add-habit-modal').classList.remove('hidden');
+      setTimeout(() => document.getElementById('add-habit-name').focus(), 80);
+    } else {
+      // Desktop: inline row in table
+      addingHabit = true; renderGrid();
+    }
+  }
+  function saveHabitFromModal() {
+    const name = document.getElementById('add-habit-name').value.trim();
+    const type = document.getElementById('add-habit-type-modal').value || 'bool';
+    if (!name) { document.getElementById('add-habit-name').focus(); return; }
+    habits.push({ id: nextId++, name, color: COLORS[(habits.length) % COLORS.length], type });
+    closeModal('add-habit-modal');
+    saveToStorage(); syncHabitsToSupabase();
+    renderGrid(); renderReport(currentRange);
+  }
+  function saveHabit() {
+    const name = document.getElementById('new-habit-input')?.value.trim();
+    const type = document.getElementById('new-habit-type')?.value || 'bool';
+    if (!name) return;
+    habits.push({ id: nextId++, name, color: COLORS[(habits.length) % COLORS.length], type });
+    addingHabit = false;
+    renderGrid(); renderReport(currentRange);
+  }
+  function cancelAdd() { addingHabit = false; renderGrid(); }
+
+  // ── EDIT HABIT ──
+  function openEditHabit(id) {
+    editingHabitId = id;
+    const h = habits.find(x => x.id === id);
+    document.getElementById('edit-name').value = h.name;
+    document.getElementById('edit-type').value = h.type;
+    document.getElementById('edit-modal').classList.remove('hidden');
+  }
+  function saveEditHabit() {
+    const h = habits.find(x => x.id === editingHabitId);
+    if (!h) return;
+    h.name = document.getElementById('edit-name').value.trim() || h.name;
+    h.type = document.getElementById('edit-type').value;
+    closeModal('edit-modal');
+    renderGrid(); renderReport(currentRange);
+  }
+  function deleteHabit() {
+    if (!confirm(`Habit wirklich löschen? Alle Einträge gehen verloren.`)) return;
+    habits = habits.filter(x => x.id !== editingHabitId);
+    Object.keys(checks).filter(k => k.startsWith(editingHabitId+'-')).forEach(k => delete checks[k]);
+    closeModal('edit-modal');
+    renderGrid(); renderReport(currentRange);
+  }
+
+  // ── NOTES ──
+  function openNote(date) {
+    noteContext.date = date;
+    const d = new Date(date);
+    document.getElementById('note-modal-title').textContent =
+      'Notiz · ' + d.toLocaleDateString('de-DE', {weekday:'long', day:'numeric', month:'long'});
+    document.getElementById('note-input').value = notes[date] || '';
+    document.getElementById('note-modal').classList.remove('hidden');
+    setTimeout(() => document.getElementById('note-input').focus(), 50);
+  }
+  function saveNote() {
+    const text = document.getElementById('note-input').value.trim();
+    if (text) notes[noteContext.date] = text;
+    else delete notes[noteContext.date];
+    closeModal('note-modal');
+    renderGrid();
+  }
+
+  function closeModal(id) {
+    document.getElementById(id).classList.add('hidden');
+  }
+  // Close modal on overlay click
+  document.querySelectorAll('.modal-overlay').forEach(el => {
+    el.addEventListener('click', e => { if (e.target === el) el.classList.add('hidden'); });
+  });
+
+  // ── REPORT ──
+  let currentRange = 7;
+  function setRange(days, btn) {
+    currentRange = days;
+    document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderReport(days);
+  }
+
+  function renderReport(days) {
+    const container = document.getElementById('report-cards');
+    if (!container) return;
+    let html = '';
+    habits.forEach(h => {
+      let done = 0, total = 0, dots = '';
+      for (let i = days - 1; i >= 0; i--) {
+        const d = new Date(today);
+        d.setDate(d.getDate() - i);
+        const key = `${h.id}-${fmt(d)}`;
+        const val = checks[key];
+        let isDone = false;
+        if (h.type === 'bool') isDone = !!val;
+        else if (h.type === 'period') isDone = val > 0;
+        else isDone = val !== undefined && val !== null && val !== '';
+        if (isDone) done++;
+        total++;
+        dots += `<div class="streak-dot ${isDone ? 'done' : ''}" title="${fmt(d)}"></div>`;
+      }
+      const pct = Math.round((done / total) * 100);
+      html += `<div class="report-card">
+        <div class="report-card-title">
+          <div class="habit-dot" style="background:${h.color};width:10px;height:10px;border-radius:50%;"></div>
+          ${h.name}
+          <span style="font-size:10px;color:var(--text-muted);font-weight:400;margin-left:auto;">${h.type === 'num' ? 'Numerisch' : 'Ja/Nein'}</span>
+        </div>
+        <div class="streak-bar">${dots}</div>
+        <div class="stat-row">
+          <div class="stat-item"><div class="stat-val">${done}</div><div class="stat-key">Einträge</div></div>
+          <div class="stat-item"><div class="stat-val">${pct}%</div><div class="stat-key">Konstanz</div></div>
+          <div class="stat-item"><div class="stat-val">${days}</div><div class="stat-key">Tage</div></div>
+        </div>
+      </div>`;
+    });
+    container.innerHTML = html;
+  }
+
+  // ── VIEW SWITCH ──
+  function setView(v) {
+    const tracker = document.getElementById('view-tracker');
+    const report = document.getElementById('view-report');
+    tracker.style.display = v === 'tracker' ? 'flex' : 'none';
+    if (v === 'tracker') tracker.style.flexDirection = 'column';
+    report.style.display = v === 'report' ? 'flex' : 'none';
+    if (v === 'report') { report.style.flexDirection = 'column'; renderReport(currentRange); }
+    document.querySelectorAll('.view-toggle button').forEach((btn, i) => {
+      btn.classList.toggle('active', (i === 0 && v === 'tracker') || (i === 1 && v === 'report'));
+    });
+    // Sync mobile bottom tabs
+    document.getElementById('tab-tracker')?.classList.toggle('active', v === 'tracker');
+    document.getElementById('tab-report')?.classList.toggle('active', v === 'report');
+  }
+
+  // ── LOCALSTORAGE ──
+  const LS_KEY = 'habit-tracker-data';
+
+  function saveToStorage() {
+    const data = { habits, checks, notes, isDark, windowStart, showHidden };
+    localStorage.setItem(LS_KEY, JSON.stringify(data));
+  }
+
+  function loadFromStorage() {
+    try {
+      const raw = localStorage.getItem(LS_KEY);
+      if (!raw) return false;
+      const data = JSON.parse(raw);
+      if (data.habits) habits = data.habits;
+      if (data.checks) checks = data.checks;
+      if (data.notes) notes = data.notes;
+      if (data.isDark !== undefined) {
+        isDark = data.isDark;
+        document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+        document.getElementById('theme-btn').textContent = isDark ? '☀️ Light' : '🌙 Dark';
+      }
+      if (data.windowStart !== undefined) windowStart = data.windowStart;
+      if (data.showHidden !== undefined) showHidden = data.showHidden;
+      nextId = habits.length ? Math.max(...habits.map(h => h.id)) + 1 : 1;
+      return true;
+    } catch(e) { return false; }
+  }
+
+  // Patch all mutating functions to auto-save + sync
+  const _toggleBool = toggleBool;
+  toggleBool = (id, date, el) => {
+    _toggleBool(id, date, el); saveToStorage();
+    syncEntryToSupabase(id, date, checks[`${id}-${date}`]);
+  };
+
+  const _setNum = setNum;
+  setNum = (id, date, el) => {
+    _setNum(id, date, el); saveToStorage();
+    syncEntryToSupabase(id, date, checks[`${id}-${date}`]);
+  };
+
+  const _confirmPeriod = confirmPeriod;
+  confirmPeriod = () => {
+    const { habitId, date, selected } = pickerContext;
+    _confirmPeriod();
+    syncEntryToSupabase(habitId, date, selected > 0 ? selected : undefined);
+  };
+
+  const _saveHabit = saveHabit;
+  saveHabit = () => { _saveHabit(); saveToStorage(); syncHabitsToSupabase(); };
+
+  const _saveEditHabit = saveEditHabit;
+  saveEditHabit = () => { _saveEditHabit(); saveToStorage(); syncHabitsToSupabase(); };
+
+  const _deleteHabit = deleteHabit;
+  deleteHabit = () => {
+    const deletedId = editingHabitId;
+    _deleteHabit(); saveToStorage();
+    syncHabitsToSupabase();
+    if (_supabase && currentUser) {
+      _supabase.from('entries').delete()
+        .eq('user_id', currentUser.id).eq('habit_local_id', deletedId).then(() => {});
+    }
+  };
+
+  const _toggleHabitVisibility = toggleHabitVisibility;
+  toggleHabitVisibility = (id) => { _toggleHabitVisibility(id); syncHabitsToSupabase(); };
+
+  const _onDrop = onDrop;
+  onDrop = (e, targetId) => { _onDrop(e, targetId); syncHabitsToSupabase(); };
+
+  const _saveNote = saveNote;
+  saveNote = () => {
+    const date = noteContext.date;
+    _saveNote(); saveToStorage();
+    syncNoteToSupabase(date, notes[date]);
+  };
+
+  const _toggleTheme = toggleTheme;
+  toggleTheme = () => { _toggleTheme(); saveToStorage(); };
+
+  const _shiftDays = shiftDays;
+  shiftDays = (n) => { _shiftDays(n); saveToStorage(); };
+
+  // ── EXPORT / IMPORT ──
+  function exportData() {
+    const data = { habits, checks, notes };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const date = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `habits-backup-${date}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function importData() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        try {
+          const data = JSON.parse(ev.target.result);
+          if (!data.habits || !Array.isArray(data.habits)) throw new Error('Ungültiges Format');
+          if (!confirm(`${data.habits.length} Habits importieren? Bestehende Daten werden überschrieben.`)) return;
+          habits = data.habits;
+          checks = data.checks || {};
+          notes = data.notes || {};
+          nextId = habits.length ? Math.max(...habits.map(h => h.id)) + 1 : 1;
+          saveToStorage();
+          renderGrid();
+          renderReport(currentRange);
+        } catch(err) {
+          alert('Fehler beim Importieren: ' + err.message);
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  }
+
+  // ── REPORT GENERATOR ──
+  function generateReport() {
+    const modal = document.getElementById('ai-report-modal');
+    const content = document.getElementById('ai-report-content');
+    content.innerHTML = `<div class="ar-loading"><div class="ar-spin">✦</div><div style="margin-top:12px;">Analysiere ${currentRange} Tage…</div></div>`;
+    modal.classList.remove('hidden');
+    setTimeout(() => { content.innerHTML = buildReportHTML(currentRange); }, 600);
+  }
+
+  function buildReportHTML(days) {
+    const dateRange = [];
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date(today); d.setDate(d.getDate() - i); dateRange.push(fmt(d));
+    }
+    const vis = habits.filter(h => !h.hidden);
+    const getVal = (hid, d) => checks[`${hid}-${d}`];
+    const isDone = (h, d) => {
+      const v = getVal(h.id, d);
+      if (h.type === 'bool') return !!v;
+      if (h.type === 'period') return (v || 0) > 0;
+      return v !== undefined && v !== null && v !== '';
+    };
+
+    // Per-habit stats
+    const stats = vis.map(h => {
+      const doneDays = dateRange.filter(d => isDone(h, d));
+      const consistency = Math.round((doneDays.length / days) * 100);
+      let currentStreak = 0;
+      for (let i = dateRange.length - 1; i >= 0; i--) {
+        if (isDone(h, dateRange[i])) currentStreak++; else break;
+      }
+      let bestStreak = 0, s = 0;
+      dateRange.forEach(d => { if (isDone(h, d)) { s++; bestStreak = Math.max(bestStreak, s); } else s = 0; });
+      let numStats = null;
+      if (h.type === 'num') {
+        const nums = dateRange.map(d => getVal(h.id, d)).filter(v => typeof v === 'number');
+        if (nums.length) {
+          const avg = Math.round(nums.reduce((a,b)=>a+b,0) / nums.length);
+          numStats = { avg, min: Math.min(...nums), max: Math.max(...nums), count: nums.length };
+        }
+      }
+      return { h, doneDays: doneDays.length, consistency, currentStreak, bestStreak, numStats };
+    });
+
+    let html = '';
+    const avgConsistency = stats.length ? Math.round(stats.reduce((a,b)=>a+b.consistency,0)/stats.length) : 0;
+    const d0 = new Date(dateRange[0]).toLocaleDateString('de-DE',{day:'numeric',month:'long'});
+    const d1 = new Date(dateRange[dateRange.length-1]).toLocaleDateString('de-DE',{day:'numeric',month:'long'});
+
+    // ── 1. ÜBERSICHT ──
+    const mood = avgConsistency >= 80 ? '🌟 Sehr konstant – weiter so!' :
+                 avgConsistency >= 55 ? '👍 Guter Rhythmus, noch Luft nach oben.' :
+                 '💪 Fang klein an – jede Eintragung zählt.';
+    html += `<div class="ar-section">
+      <div class="ar-header"><span class="ar-icon">📅</span><div><div class="ar-title">Übersicht</div><div class="ar-sub">${d0} – ${d1}</div></div></div>
+      <p>Durchschnittliche Konstanz über alle Habits: <strong>${avgConsistency}%</strong>. ${mood}</p>
+    </div>`;
+
+    // ── 2. HABIT INSIGHTS ──
+    html += `<div class="ar-section"><div class="ar-header"><span class="ar-icon">🎯</span><div class="ar-title">Habit Details</div></div>`;
+    [...stats].sort((a,b) => b.consistency - a.consistency).forEach(s => {
+      const c = s.consistency >= 70 ? '#2ec99e' : s.consistency >= 40 ? '#ffb86b' : '#ff6b6b';
+      let detail = '';
+      if (s.h.type === 'num' && s.numStats) {
+        detail = `Ø ${s.numStats.avg} · Min ${s.numStats.min} · Max ${s.numStats.max} · ${s.numStats.count} Einträge`;
+      } else {
+        detail = `${s.doneDays} von ${days} Tagen`;
+        if (s.bestStreak > 2) detail += ` · Längste Serie: ${s.bestStreak}`;
+        if (s.currentStreak > 1) detail += ` · Aktuell: ${s.currentStreak} am Stück`;
+      }
+      html += `<div class="ar-habit-row">
+        <div class="ar-habit-dot" style="background:${s.h.color}"></div>
+        <div class="ar-habit-info"><div class="ar-habit-name">${s.h.name}</div><div class="ar-habit-detail">${detail}</div></div>
+        <div class="ar-pct" style="color:${c}">${s.consistency}%</div>
+      </div>`;
+    });
+    html += `</div>`;
+
+    // ── 3. KORRELATIONEN (num vs bool) ──
+    const numStat = stats.find(s => s.h.type === 'num' && s.numStats);
+    if (numStat) {
+      const numVals = dateRange.map(d => ({ d, v: getVal(numStat.h.id, d) })).filter(x => typeof x.v === 'number');
+      if (numVals.length >= 5) {
+        const avg = numVals.reduce((a,b)=>a+b.v,0) / numVals.length;
+        const goodDays = new Set(numVals.filter(x => x.v >= avg).map(x => x.d));
+        const badDays  = new Set(numVals.filter(x => x.v < avg).map(x => x.d));
+        const corrs = [];
+        vis.filter(h => (h.type === 'bool' || h.type === 'period') && h.id !== numStat.h.id).forEach(h => {
+          if (goodDays.size < 2 || badDays.size < 2) return;
+          const gr = [...goodDays].filter(d => isDone(h,d)).length / goodDays.size;
+          const br = [...badDays].filter(d => isDone(h,d)).length / badDays.size;
+          if (Math.abs(gr - br) >= 0.2) corrs.push({ h, gr, br, diff: gr - br });
+        });
+        if (corrs.length) {
+          html += `<div class="ar-section"><div class="ar-header"><span class="ar-icon">🔗</span><div class="ar-title">Zusammenhänge mit ${numStat.h.name}</div></div>`;
+          corrs.sort((a,b)=>Math.abs(b.diff)-Math.abs(a.diff)).slice(0,4).forEach(c => {
+            const dir = c.diff > 0 ? 'häufiger' : 'seltener';
+            const col = c.diff > 0 ? '#2ec99e' : '#ff6b9d';
+            html += `<p><span style="color:${c.h.color}">●</span> <strong>${c.h.name}</strong> tritt ${dir} auf wenn ${numStat.h.name} ≥ ${Math.round(avg)}
+              <span style="color:${col};font-size:12px;"> (${Math.round(c.gr*100)}% vs. ${Math.round(c.br*100)}%)</span></p>`;
+          });
+          html += `</div>`;
+        }
+      }
+    }
+
+    // ── 4. TIPP ──
+    const noData = stats.filter(s => s.doneDays === 0);
+    const low = stats.filter(s => s.consistency < 40 && s.doneDays > 0 && s.h.type === 'bool');
+    if (noData.length || low.length) {
+      html += `<div class="ar-section"><div class="ar-header"><span class="ar-icon">💡</span><div class="ar-title">Fokus-Tipp</div></div>`;
+      if (noData.length) {
+        html += `<p><strong>${noData.map(s=>s.h.name).join(', ')}</strong> ${noData.length===1?'wurde':'wurden'} in diesem Zeitraum gar nicht getrackt. Zu groß? Probier eine kleinere Variante.</p>`;
+      } else {
+        const worst = low.sort((a,b)=>a.consistency-b.consistency)[0];
+        html += `<p><strong>${worst.h.name}</strong> nur ${worst.consistency}% Konstanz. Verknüpfe ihn direkt nach einem Habit, den du bereits sicher machst.</p>`;
+      }
+      html += `</div>`;
+    }
+
+    return html;
+  }
+
+  // ── SUPABASE ──
+  const SUPA_URL = 'https://ovcfcbhvabxbvauxrkom.supabase.co';
+  const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im92Y2ZjYmh2YWJ4YnZhdXhya29tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2NDU5NDIsImV4cCI6MjA4OTIyMTk0Mn0.bu3shjE-joKD32HYKPlAyCd8Xa2FX7iOVPO2tUVRFeA';
+
+  let _supabase = null;
+  let currentUser = null;
+
+  function initSupabase() {
+    if (!window.supabase) { console.warn('Supabase SDK not loaded'); return; }
+    try {
+      _supabase = window.supabase.createClient(SUPA_URL, SUPA_KEY);
+    } catch(e) { console.error('Supabase init failed', e); return; }
+
+    _supabase.auth.onAuthStateChange(async (event, session) => {
+      currentUser = session?.user || null;
+      updateAuthUI();
+      if (event === 'SIGNED_IN') {
+        document.getElementById('login-overlay').classList.add('hidden');
+        await pushLocalDataToSupabase();
+        await loadAllFromSupabase();
+      } else if (event === 'TOKEN_REFRESHED') {
+        // App kam aus dem Hintergrund zurück — Token still valid, kein Re-Sync nötig
+        if (currentUser) setSyncStatus('synced');
+      } else if (event === 'SIGNED_OUT') {
+        document.getElementById('login-overlay').classList.remove('hidden');
+        setSyncStatus('');
+      }
+    });
+
+    _supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session && !localStorage.getItem('habit-sync-skipped')) {
+        document.getElementById('login-overlay').classList.remove('hidden');
+      }
+    });
+  }
+
+  let _otpEmail = '';
+
+  async function sendOtpEmail() {
+    const email = document.getElementById('login-email').value.trim();
+    if (!email || !_supabase) return;
+    _otpEmail = email;
+    const btn = document.querySelector('#login-form button');
+    btn.disabled = true; btn.textContent = 'Sende…';
+    const { error } = await _supabase.auth.signInWithOtp({
+      email, options: { shouldCreateUser: true }
+    });
+    if (error) {
+      alert('Fehler: ' + error.message);
+      btn.disabled = false; btn.textContent = 'Code senden';
+    } else {
+      document.getElementById('login-form').classList.add('hidden');
+      document.getElementById('login-sent').classList.remove('hidden');
+      document.getElementById('login-code-input').focus();
+    }
+  }
+
+  async function verifyOtpCode() {
+    const code = document.getElementById('login-code-input').value.trim();
+    if (code.length < 4 || !_supabase) return;
+    const btn = document.getElementById('login-verify-btn');
+    btn.disabled = true; btn.textContent = 'Prüfe…';
+    const { error } = await _supabase.auth.verifyOtp({
+      email: _otpEmail, token: code, type: 'magiclink'
+    });
+    if (error) {
+      btn.disabled = false; btn.textContent = 'Anmelden';
+      document.getElementById('login-code-input').style.borderColor = '#ff6b6b';
+      document.getElementById('login-code-input').value = '';
+      document.getElementById('login-code-input').placeholder = 'Falscher Code – nochmal';
+    }
+    // on success: onAuthStateChange fires → hides overlay automatically
+  }
+
+  function backToEmail() {
+    document.getElementById('login-sent').classList.add('hidden');
+    document.getElementById('login-form').classList.remove('hidden');
+    const btn = document.querySelector('#login-form button');
+    btn.disabled = false; btn.textContent = 'Code senden';
+    document.getElementById('login-code-input').value = '';
+    document.getElementById('login-code-input').style.borderColor = '';
+  }
+
+  function skipLogin() {
+    localStorage.setItem('habit-sync-skipped', '1');
+    document.getElementById('login-overlay').classList.add('hidden');
+  }
+
+  function openAccountMenu() {
+    if (!currentUser) return;
+    document.getElementById('account-modal-email').textContent = currentUser.email || '';
+    document.getElementById('account-modal').classList.remove('hidden');
+  }
+
+  async function doSignOut() {
+    closeModal('account-modal');
+    if (!_supabase) return;
+    await _supabase.auth.signOut();
+    currentUser = null;
+    localStorage.removeItem('habit-sync-skipped');
+    updateAuthUI();
+  }
+
+  // keep old name as alias in case it's referenced elsewhere
+  async function signOut() { return doSignOut(); }
+
+  function updateAuthUI() {
+    const chip = document.getElementById('user-chip');
+    const dot = document.getElementById('sync-dot');
+    if (currentUser) {
+      chip.classList.remove('hidden');
+      chip.textContent = currentUser.email?.split('@')[0] || 'User';
+      chip.title = currentUser.email + ' · Klicken zum Abmelden';
+      dot.classList.remove('hidden');
+    } else {
+      chip.classList.add('hidden');
+      dot.classList.add('hidden');
+    }
+  }
+
+  function setSyncStatus(state) {
+    const dot = document.getElementById('sync-dot');
+    if (!dot) return;
+    dot.className = 'sync-dot' + (state ? ' ' + state : '');
+    if (currentUser) dot.classList.remove('hidden');
+    const t = { synced: '✓ Synchronisiert', syncing: '⟳ Synchronisiere…', error: '✗ Sync-Fehler' };
+    dot.title = t[state] || '';
+  }
+
+  // Schiebt lokale Daten zu Supabase (upsert = kein Überschreiben neuerer Daten)
+  async function pushLocalDataToSupabase() {
+    if (!_supabase || !currentUser) return;
+    const uid = currentUser.id;
+    try {
+      // Habits pushen
+      if (habits.length > 0) {
+        const rows = habits.map((h, i) => ({
+          user_id: uid, local_id: h.id, name: h.name, color: h.color,
+          type: h.type, hidden: h.hidden || false, sort_order: i,
+          updated_at: new Date().toISOString()
+        }));
+        await _supabase.from('habits').upsert(rows, { onConflict: 'user_id,local_id' });
+      }
+      // Einträge pushen
+      const entryRows = Object.entries(checks).map(([key, value]) => {
+        const idx = key.indexOf('-', key.indexOf('-') + 1) > 0 ? key.indexOf('-') : key.indexOf('-');
+        const habitId = Number(key.substring(0, key.indexOf('-')));
+        const date = key.substring(key.indexOf('-') + 1);
+        return { user_id: uid, habit_local_id: habitId, date, value: String(value), updated_at: new Date().toISOString() };
+      }).filter(r => !isNaN(r.habit_local_id));
+      if (entryRows.length > 0) {
+        await _supabase.from('entries').upsert(entryRows, { onConflict: 'user_id,habit_local_id,date' });
+      }
+      // Notizen pushen
+      const noteRows = Object.entries(notes).map(([date, text]) => ({
+        user_id: uid, date, text, updated_at: new Date().toISOString()
+      }));
+      if (noteRows.length > 0) {
+        await _supabase.from('day_notes').upsert(noteRows, { onConflict: 'user_id,date' });
+      }
+    } catch(e) { console.error('pushLocalData failed', e); }
+  }
+
+  async function loadAllFromSupabase() {
+    if (!_supabase || !currentUser) return;
+    try {
+      const uid = currentUser.id;
+      const [hr, er, nr] = await Promise.all([
+        _supabase.from('habits').select('*').eq('user_id', uid).order('sort_order'),
+        _supabase.from('entries').select('*').eq('user_id', uid),
+        _supabase.from('day_notes').select('*').eq('user_id', uid)
+      ]);
+      if (hr.data && hr.data.length > 0) {
+        habits = hr.data.map(h => ({
+          id: h.local_id, name: h.name, color: h.color,
+          type: h.type, hidden: h.hidden || false
+        }));
+        nextId = Math.max(...habits.map(h => h.id)) + 1;
+      }
+      if (er.data) {
+        checks = {};
+        er.data.forEach(e => {
+          if (e.value === null) return;
+          const key = `${e.habit_local_id}-${e.date}`;
+          if (e.value === 'true') checks[key] = true;
+          else { const n = parseFloat(e.value); checks[key] = isNaN(n) ? e.value : n; }
+        });
+      }
+      if (nr.data) {
+        notes = {};
+        nr.data.forEach(n => { notes[n.date] = n.text; });
+      }
+      saveToStorage();
+      setSyncStatus('synced');
+      renderGrid();
+      renderReport(currentRange);
+    } catch(e) {
+      console.error('Load from Supabase failed', e);
+      setSyncStatus('error');
+    }
+  }
+
+  async function syncEntryToSupabase(habitId, date, value) {
+    if (!_supabase || !currentUser) return;
+    setSyncStatus('syncing');
+    try {
+      const uid = currentUser.id;
+      if (value === undefined || value === null || value === false) {
+        await _supabase.from('entries').delete()
+          .eq('user_id', uid).eq('habit_local_id', habitId).eq('date', date);
+      } else {
+        await _supabase.from('entries').upsert({
+          user_id: uid, habit_local_id: habitId, date,
+          value: String(value), updated_at: new Date().toISOString()
+        }, { onConflict: 'user_id,habit_local_id,date' });
+      }
+      setSyncStatus('synced');
+    } catch(e) { console.error(e); setSyncStatus('error'); }
+  }
+
+  async function syncNoteToSupabase(date, text) {
+    if (!_supabase || !currentUser) return;
+    setSyncStatus('syncing');
+    try {
+      const uid = currentUser.id;
+      if (!text) {
+        await _supabase.from('day_notes').delete().eq('user_id', uid).eq('date', date);
+      } else {
+        await _supabase.from('day_notes').upsert({
+          user_id: uid, date, text, updated_at: new Date().toISOString()
+        }, { onConflict: 'user_id,date' });
+      }
+      setSyncStatus('synced');
+    } catch(e) { console.error(e); setSyncStatus('error'); }
+  }
+
+  async function syncHabitsToSupabase() {
+    if (!_supabase || !currentUser) return;
+    setSyncStatus('syncing');
+    try {
+      const uid = currentUser.id;
+      const localIds = habits.map(h => h.id);
+      if (localIds.length > 0) {
+        await _supabase.from('habits').delete().eq('user_id', uid)
+          .not('local_id', 'in', `(${localIds.join(',')})`);
+      } else {
+        await _supabase.from('habits').delete().eq('user_id', uid);
+      }
+      if (habits.length > 0) {
+        const rows = habits.map((h, i) => ({
+          user_id: uid, local_id: h.id, name: h.name, color: h.color,
+          type: h.type, hidden: h.hidden || false, sort_order: i,
+          updated_at: new Date().toISOString()
+        }));
+        await _supabase.from('habits').upsert(rows, { onConflict: 'user_id,local_id' });
+      }
+      setSyncStatus('synced');
+    } catch(e) { console.error(e); setSyncStatus('error'); }
+  }
+
+  // ── SERVICE WORKER ──
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+
+  // ── INIT ──
+  loadFromStorage();
+  renderGrid();
+  setView('tracker');
+  initSupabase();
+
+  // Sync wenn App wieder in den Vordergrund kommt (Tab-Wechsel, iPhone entsperren)
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') loadAllFromSupabase();
+  });
+</script>
+</body>
+</html>
