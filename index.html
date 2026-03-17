@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<html lang="de" data-theme="dark">
+<html lang="de" data-theme="light">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Habits" />
-  <meta name="theme-color" content="#7c6bff" />
+  <meta name="theme-color" content="#f5f0e8" />
   <link rel="manifest" href="manifest.json" />
   <script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -25,16 +25,73 @@
       --shadow: 0 2px 12px rgba(0,0,0,0.4);
     }
     :root[data-theme="light"] {
-      --bg: #f4f4f8;
+      --bg: #f5f0e8;
       --surface: #ffffff;
-      --surface2: #f0f0f5;
-      --border: #dddde8;
-      --accent: #6355e8;
-      --accent-soft: #ebe9ff;
-      --text: #1a1a2e;
-      --text-muted: #8080a8;
-      --shadow: 0 2px 12px rgba(0,0,0,0.08);
+      --surface2: #ede8df;
+      --border: #e2dbd0;
+      --accent: #c8f04e;        /* Lime  → dunkler Text drauf */
+      --accent-action: #6355e8; /* Lila  → weißer Text drauf  */
+      --accent-soft: #eefabb;
+      --text: #1a1a16;
+      --text-muted: #9a9080;
+      --shadow: 0 2px 16px rgba(0,0,0,0.06);
     }
+
+    /* ── LIGHT MODE OVERRIDES ── */
+
+    /* Checkboxen: Lime bg, dunkles ✓ */
+    [data-theme="light"] input[type="checkbox"]:checked + .check-box {
+      background: var(--accent); border-color: var(--accent); color: #1a1a16;
+    }
+    [data-theme="light"] .check-box { background: var(--surface); border-color: var(--border); }
+    [data-theme="light"] .check-box:hover { background: var(--accent-soft); border-color: var(--accent); }
+
+    /* User-Chip: Lime bg, dunkler Text */
+    [data-theme="light"] .user-chip {
+      background: var(--accent); color: #1a1a16; border-color: transparent;
+    }
+
+    /* FAB + alle primären Buttons: Lila bg, weißer Text */
+    [data-theme="light"] .tab-add { background: var(--accent-action) !important; color: #fff !important; }
+    [data-theme="light"] .btn-primary { background: var(--accent-action); color: #fff; }
+    [data-theme="light"] .btn-save { background: var(--accent-action); color: #fff; }
+    [data-theme="light"] .btn-outline { border-color: var(--accent-action); color: var(--accent-action); }
+
+    /* Heute-Datum: Lila (weißer Text wäre zu dunkel auf Lime) */
+    [data-theme="light"] .th-date.today .day-num { color: var(--accent-action); }
+    [data-theme="light"] .th-date.today .day-name { color: var(--accent-action); }
+
+    /* Aktiver Tab (View-Toggle): Lila bg, weißer Text */
+    [data-theme="light"] .view-toggle button.active {
+      background: var(--accent-action); color: #fff;
+    }
+
+    /* Range-Buttons aktiv: Lila border+text */
+    [data-theme="light"] .range-btn.active {
+      background: #ebe9ff; border-color: var(--accent-action); color: var(--accent-action);
+    }
+
+    /* Period-Zellen aktiv: Lime bg, dunkler Text */
+    [data-theme="light"] .period-cell-btn.active {
+      background: var(--accent); border-color: var(--accent); color: #1a1a16;
+    }
+
+    /* Mobile Bottom Tab aktiv: Lila */
+    [data-theme="light"] .mobile-tab.active { color: var(--accent-action); }
+
+    /* Struktur */
+    [data-theme="light"] header { background: var(--bg); border-bottom: none; box-shadow: none; }
+    [data-theme="light"] .month-nav { background: var(--bg); border-bottom: none; }
+    [data-theme="light"] .th-habit-col,
+    [data-theme="light"] thead th { background: var(--bg); }
+    [data-theme="light"] .td-habit { background: var(--bg); }
+    [data-theme="light"] tbody tr:hover .td-habit { background: var(--surface2); }
+    [data-theme="light"] .num-input { background: var(--surface); }
+    [data-theme="light"] .report-card { box-shadow: 0 2px 12px rgba(0,0,0,0.05); border: none; }
+    [data-theme="light"] .modal { box-shadow: 0 8px 40px rgba(0,0,0,0.12); border: none; }
+    [data-theme="light"] .mobile-bottom-bar { background: var(--surface); border-top: 1px solid var(--border); }
+    [data-theme="light"] .theme-toggle { border-color: var(--border); }
+    [data-theme="light"] tbody tr { border-bottom-color: var(--border); }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
     .hidden { display: none !important; }
@@ -124,7 +181,7 @@
       background: var(--surface); border-bottom: 1px solid var(--border);
     }
     .th-habit-col {
-      left: 0; z-index: 20 !important; min-width: 200px;
+      left: 0; z-index: 20 !important; width: 1%; white-space: nowrap;
       padding: 10px 16px; text-align: left; font-size: 12px;
       text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted);
     }
@@ -139,7 +196,7 @@
 
     .td-habit {
       position: sticky; left: 0; background: var(--bg); z-index: 5;
-      min-width: 200px; padding: 0 16px; height: 52px; vertical-align: middle;
+      width: 1%; white-space: nowrap; padding: 0 16px; height: 52px; vertical-align: middle;
       border-right: 1px solid var(--border); transition: background 0.1s;
     }
     tbody tr:hover .td-habit { background: var(--surface2); }
@@ -149,12 +206,21 @@
     }
     .habit-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
     .habit-label { font-size: 14px; font-weight: 500; flex: 1; }
+    .habit-pill {
+      display: inline-block;
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 13px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
     .habit-type-badge {
       font-size: 10px; background: var(--surface2); color: var(--text-muted);
       padding: 2px 6px; border-radius: 10px; border: 1px solid var(--border);
     }
-    .habit-actions { display: none; gap: 2px; }
+    .habit-actions { display: none; gap: 2px; margin-left: auto; }
     tbody tr:hover .habit-actions { display: flex; }
+    .edit-mode .habit-actions { display: flex; }
     .habit-edit-btn {
       background: none; border: none; color: var(--text-muted); cursor: pointer;
       padding: 3px 5px; border-radius: 5px; font-size: 13px;
@@ -579,8 +645,9 @@
       .period-cell-btn { width: 40px; height: 34px; font-size: 14px; }
       .num-input { width: 42px; height: 32px; font-size: 12px; }
 
-      /* Always show habit actions on mobile (no hover) */
-      .habit-actions { display: flex !important; }
+      /* Habit actions nur im Bearbeiten-Modus sichtbar */
+      .habit-actions { display: none; }
+      .edit-mode .habit-actions { display: flex !important; }
       .habit-edit-btn { font-size: 12px; padding: 2px 4px; }
 
       /* Fill remaining space */
@@ -602,7 +669,7 @@
 <body>
 
 <header>
-  <h1>Habit Tracker <span style="font-size:11px;font-weight:400;opacity:0.4;letter-spacing:0;">v1.3</span></h1>
+  <h1>Habit Tracker <span style="font-size:11px;font-weight:400;opacity:0.4;letter-spacing:0;">v1.4</span></h1>
   <div class="header-spacer"></div>
   <span class="sync-dot hidden" id="sync-dot" title=""></span>
   <button class="user-chip hidden" id="user-chip" onclick="openAccountMenu()" title="Konto"></button>
@@ -622,8 +689,7 @@
     <button class="btn-icon" onclick="shiftDays(-14)">◀</button>
     <span class="month-label" id="month-label"></span>
     <button class="btn-icon" onclick="shiftDays(14)">▶</button>
-    <button class="nav-toggle-btn show-hidden-btn" id="show-hidden-btn" onclick="toggleShowHidden()">👁 Versteckte</button>
-    <button class="nav-toggle-btn" id="reorder-btn" onclick="toggleReorderMode()">↕ Verschieben</button>
+    <button class="nav-toggle-btn" id="edit-mode-btn" onclick="toggleEditMode()">✏️ Bearbeiten</button>
   </div>
   <div class="grid-scroll" id="grid-area"></div>
 </main>
@@ -905,8 +971,7 @@
       html += `<tr class="${hiddenClass}" data-habit-id="${h.id}" ${dragAttrs}><td class="td-habit">
         <div class="habit-name">
           ${reorderMode ? `<span class="drag-handle" title="Ziehen zum Verschieben">⠿</span>` : ''}
-          <div class="habit-dot" style="background:${h.color}; opacity:${h.hidden?0.4:1}"></div>
-          <span class="habit-label">${h.name}</span>
+          <span class="habit-pill" style="background:${h.color}22; border: 1.5px solid ${h.color}; color: var(--text);">${h.name}</span>
           <div class="habit-actions">
             <button class="habit-edit-btn" onclick="toggleHabitVisibility(${h.id})" title="${h.hidden?'Einblenden':'Ausblenden'}">${h.hidden?'👁':'🙈'}</button>
             <button class="habit-edit-btn" onclick="openEditHabit(${h.id})" title="Bearbeiten">✏️</button>
@@ -1042,10 +1107,12 @@
       document.getElementById('period-picker-overlay').classList.add('hidden');
   });
 
-  // ── REORDER MODE ──
-  function toggleReorderMode() {
+  // ── EDIT MODE (ersetzt toggleReorderMode + toggleShowHidden) ──
+  function toggleEditMode() {
     reorderMode = !reorderMode;
-    document.getElementById('reorder-btn').classList.toggle('active', reorderMode);
+    showHidden = reorderMode;
+    document.getElementById('edit-mode-btn').classList.toggle('active', reorderMode);
+    document.getElementById('grid-area').classList.toggle('edit-mode', reorderMode);
     renderGrid();
   }
 
@@ -1092,10 +1159,8 @@
   }
 
   function toggleShowHidden() {
-    showHidden = !showHidden;
-    document.getElementById('show-hidden-btn').classList.toggle('active', showHidden);
-    document.getElementById('reorder-btn')?.classList.toggle('active', false);
-    renderGrid();
+    // legacy – wird nicht mehr direkt aufgerufen
+    toggleEditMode();
   }
 
   // ── ADD HABIT ──
