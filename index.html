@@ -674,6 +674,7 @@
   <button class="user-chip hidden" id="user-chip" onclick="openAccountMenu()" title="Konto"></button>
   <button class="btn-icon" onclick="importData()" title="Daten importieren">📥</button>
   <button class="btn-icon" onclick="exportData()" title="Daten exportieren">📤</button>
+  <button class="btn-icon" onclick="toggleDevMode()" id="dev-mode-btn" title="Auth ein/ausschalten"></button>
   <button class="theme-toggle" onclick="toggleTheme()" id="theme-btn">☀️ Light</button>
   <div class="view-toggle">
     <button class="active" onclick="setView('tracker')">Tracker</button>
@@ -1556,11 +1557,25 @@
   }
 
   // ── SUPABASE ──
+  const DEV_MODE = localStorage.getItem('dev-mode') !== 'false'; // Toggle via 🔓/🔒 Button
   const SUPA_URL = 'https://ovcfcbhvabxbvauxrkom.supabase.co';
   const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im92Y2ZjYmh2YWJ4YnZhdXhya29tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2NDU5NDIsImV4cCI6MjA4OTIyMTk0Mn0.bu3shjE-joKD32HYKPlAyCd8Xa2FX7iOVPO2tUVRFeA';
 
   let _supabase = null;
   let currentUser = null;
+
+  function toggleDevMode() {
+    localStorage.setItem('dev-mode', DEV_MODE ? 'false' : 'true');
+    location.reload();
+  }
+
+  function updateDevModeBtn() {
+    const btn = document.getElementById('dev-mode-btn');
+    if (!btn) return;
+    btn.textContent = DEV_MODE ? '🔓' : '🔒';
+    btn.title = DEV_MODE ? 'Dev-Modus: kein Login (klicken zum Aktivieren)' : 'Auth aktiv (klicken zum Deaktivieren)';
+    btn.style.opacity = DEV_MODE ? '0.5' : '1';
+  }
 
   function initSupabase() {
     if (!window.supabase) { console.warn('Supabase SDK not loaded'); return; }
@@ -1584,6 +1599,11 @@
     });
 
     _supabase.auth.getSession().then(({ data: { session } }) => {
+      if (DEV_MODE) {
+        localStorage.setItem('habit-sync-skipped', '1');
+        document.getElementById('login-overlay').classList.add('hidden');
+        return;
+      }
       if (!session && !localStorage.getItem('habit-sync-skipped')) {
         document.getElementById('login-overlay').classList.remove('hidden');
       }
@@ -1824,6 +1844,7 @@
   renderGrid();
   setView('tracker');
   initSupabase();
+  updateDevModeBtn();
 
   // Sync wenn App wieder in den Vordergrund kommt (Tab-Wechsel, iPhone entsperren)
   document.addEventListener('visibilitychange', () => {
