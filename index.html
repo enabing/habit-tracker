@@ -77,7 +77,7 @@
     }
 
     /* Mobile Bottom Tab aktiv: Lila */
-    [data-theme="light"] .mobile-tab.active { color: var(--accent-action); }
+    [data-theme="light"] .tab-btn.active { color: var(--accent-action); }
 
     /* Struktur */
     [data-theme="light"] header { background: var(--bg); border-bottom: none; box-shadow: none; }
@@ -219,7 +219,6 @@
       padding: 2px 6px; border-radius: 10px; border: 1px solid var(--border);
     }
     .habit-actions { display: none; gap: 2px; margin-left: auto; }
-    tbody tr:hover .habit-actions { display: flex; }
     .edit-mode .habit-actions { display: flex; }
     .habit-edit-btn {
       background: none; border: none; color: var(--text-muted); cursor: pointer;
@@ -669,7 +668,7 @@
 <body>
 
 <header>
-  <h1>Habit Tracker <span style="font-size:11px;font-weight:400;opacity:0.4;letter-spacing:0;">v1.4</span></h1>
+  <h1>Habit Tracker <span style="font-size:11px;font-weight:400;opacity:0.4;letter-spacing:0;">v1.5</span></h1>
   <div class="header-spacer"></div>
   <span class="sync-dot hidden" id="sync-dot" title=""></span>
   <button class="user-chip hidden" id="user-chip" onclick="openAccountMenu()" title="Konto"></button>
@@ -1572,13 +1571,12 @@
     _supabase.auth.onAuthStateChange(async (event, session) => {
       currentUser = session?.user || null;
       updateAuthUI();
-      if (event === 'SIGNED_IN') {
+      if (event === 'SIGNED_IN' || (event === 'INITIAL_SESSION' && session)) {
         document.getElementById('login-overlay').classList.add('hidden');
-        await pushLocalDataToSupabase();
         await loadAllFromSupabase();
       } else if (event === 'TOKEN_REFRESHED') {
-        // App kam aus dem Hintergrund zurück — Token still valid, kein Re-Sync nötig
-        if (currentUser) setSyncStatus('synced');
+        // App kam aus dem Hintergrund — neu laden um aktuellen Stand zu holen
+        if (currentUser) await loadAllFromSupabase();
       } else if (event === 'SIGNED_OUT') {
         document.getElementById('login-overlay').classList.remove('hidden');
         setSyncStatus('');
